@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const express = require("express");
-const Post = require("./PostModel"); // Assuming Post model is defined properly
+const Post = require("./backend/PostModel"); // Assuming Post model is defined properly
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const multer = require("multer");
