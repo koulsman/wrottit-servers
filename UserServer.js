@@ -5,7 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
-const User = require('./userModel');
+const User = require('./UserModel');
 
 const app = express();
 const port = process.env.PORT || 3001;
