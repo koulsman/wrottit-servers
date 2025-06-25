@@ -1,4 +1,4 @@
-require('dotenv').config();
+
 
 const express = require('express');
 const cors = require('cors');
@@ -7,16 +7,22 @@ const mongoose = require('mongoose');
 const Community = require('./CommunitySchema'); // Your mongoose model
 
 const app = express();
+require('dotenv').config();
+const uri = process.env.MONGODB_URI;
 const port = process.env.PORT || 3003;
 
-const uri = process.env.MONGODB_URI;
+
+
+const allowedOrigins = [
+  'http://localhost:3000', // local frontend
+  'https://wrottit-yovc.onrender.com' // deployed frontend
+];
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true,
 }));
-
 app.use(bodyParser.json());
 
 console.log('MongoDB URI being used:', uri);
@@ -43,6 +49,7 @@ app.post('/communities', async (req, res) => {
     iconImage: req.body.iconImage,
     bannerImage: req.body.bannerImage,
     members: req.body.members,
+    flags: req.body.flags
   });
 
   try {

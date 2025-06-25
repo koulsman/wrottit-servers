@@ -14,8 +14,15 @@ const port = process.env.PORT || 3001;
 const uri = process.env.MONGODB_URI;
 
 // Middleware
+const allowedOrigins = [
+  'http://localhost:3000', // local frontend
+  'https://wrottit-yovc.onrender.com' // deployed frontend
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true,
 }));
 app.use(bodyParser.json());
 console.log('MongoDB URI being used:', uri);
@@ -112,7 +119,39 @@ app.post('/users/:uid/posts', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+app.post('/users/:uid/joined', async (req,res) => {
+  const { uid } = req.params;
+  const { id } = req.body;
 
+  try {
+    const user = await User.findByIdAndUpdate(
+      uid,
+      { $push: { joined: { id } } }, // Push the new comment into the array
+      { new: true } // Return the updated document
+    );
+    if (!user) {
+      return res.status(404).send({ message: 'user not found' });
+    }
+    res.status(200).send(user); // Send updated post
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Internal server error' });
+  }
+})
+app.post('/users/liked',async (req, res) => {
+  const user = new User({
+    name: req.body.name,
+    email: req.body.email,
+    password: req.body.password // Fix: Access password from req.body
+  });
+
+  try {
+    const newUser = await user.save();
+    res.status(201).json(newUser); // Send created user as a response
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+})
 // User login with password check
 app.post('/users/login', async (req, res) => {
   try {
@@ -128,6 +167,43 @@ app.post('/users/login', async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+});
+
+async function getUser(req, res, next) {
+  let user;
+  try {
+    user = await User.findById(req.params.id);
+    if (user == null) {
+      return res.status(404).json({ message: 'Cannot find user' });
+    }
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+
+  res.user = user;
+  next();
+}
+
+app.get('/users/:id', getUser, (req, res) => {
+  res.json(res.user);
+})
+app.get('/users/:id/joined', getUser, (req, res) => {
+  res.json(res.user);
+});
+app.get('/users/:id/saved', getUser, (req, res) => {
+  res.json(res.user);
+});
+app.get('/users/:name', getUser, (req, res) => {
+  res.json(res.user);
+});
+app.get('/users/:email', getUser, (req, res) => {
+  res.json(res.user);
+});
+app.get('/users/:password', getUser, (req, res) => {
+  res.json(res.user);
+});
+app.get('/users/:userImage', getUser, (req, res) => {
+  res.json(res.user);
 });
 
 module.exports = app;
