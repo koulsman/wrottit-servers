@@ -6,7 +6,7 @@ const Post = require('../PostModel'); // Σωστή διαδρομή μοντέ�
 const upload = multer({ dest: 'uploads/' });
 
 // Δημιουργία post
-router.post('/', upload.none(), async (req, res) => {
+router.post('/posts', upload.none(), async (req, res) => {
   const post = new Post({
     title: req.body.title,
     communityName: req.body.communityName,
@@ -30,7 +30,7 @@ router.post('/', upload.none(), async (req, res) => {
 });
 
 // Όλα τα posts
-router.get('/', async (req, res) => {
+router.get('/posts', async (req, res) => {
   try {
     const posts = await Post.find();
     res.json(posts);
@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
 });
 
 // Post by ID
-router.get('/:id', async (req, res) => {
+router.get('/posts/:id', async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: 'Post not found' });
@@ -51,7 +51,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Προσθήκη comment
-router.post('/:id/comments', async (req, res) => {
+router.post('/posts/:id/comments', async (req, res) => {
   const { id } = req.params;
   const { uid, uname, comment } = req.body;
 
@@ -84,7 +84,7 @@ router.post('/:id/upvotes', async (req, res) => {
 });
 
 // Posts by user
-router.get('/postsby/:uid', async (req, res) => {
+router.get('/posts/postsby/:uid', async (req, res) => {
   try {
     const posts = await Post.find({ uid: req.params.uid });
     res.json(posts);
@@ -94,7 +94,7 @@ router.get('/postsby/:uid', async (req, res) => {
 });
 
 // Posts by community
-router.get('/communityPosts/:communityId', async (req, res) => {
+router.get('/posts/communityPosts/:communityId', async (req, res) => {
   try {
     const communityPosts = await Post.find({ communityId: String(req.params.communityId) });
     res.json(communityPosts);
