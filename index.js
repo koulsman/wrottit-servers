@@ -33,7 +33,7 @@ const communityRoutes = require('./routes/CommunityServer');
 // const communityRoutes = require('./routes/communities');
 
 // Mount routes
-app.use('/', userRoutes);
+app.use('/UserServer', userRoutes);
 app.use('/PostServer', postRoutes);
 app.use('/CommunityServer', communityRoutes);
 // app.use('/communities', communityRoutes);
