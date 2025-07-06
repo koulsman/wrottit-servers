@@ -13,30 +13,30 @@ const port = process.env.PORT || 3003;
 
 
 
-const allowedOrigins = [
-  'http://localhost:3000', // local frontend
-  'https://wrottit-yovc.onrender.com' // deployed frontend
-];
+// const allowedOrigins = [
+//   'http://localhost:3000', // local frontend
+//   'https://wrottit-yovc.onrender.com' // deployed frontend
+// ];
 
-router.use(cors({
-  origin: allowedOrigins,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true,
-}));
-router.use(bodyParser.json());
+// router.use(cors({
+//   origin: allowedOrigins,
+//   methods: ['GET', 'POST', 'PUT', 'DELETE'],
+//   credentials: true,
+// }));
+// router.use(bodyParser.json());
 
-console.log('MongoDB URI being used:', uri);
+// console.log('MongoDB URI being used:', uri);
 
-mongoose.connect(uri)
-  .then(() => {
-    console.log('MongoDB Connected!');
-    router.listen(port, () => {
-      console.log(`Community server running on port ${port}`);
-    });
-  })
-  .catch(err => {
-    console.error('MongoDB connection error:', err);
-  });
+// mongoose.connect(uri)
+//   .then(() => {
+//     console.log('MongoDB Connected!');
+//     router.listen(port, () => {
+//       console.log(`Community server running on port ${port}`);
+//     });
+//   })
+//   .catch(err => {
+//     console.error('MongoDB connection error:', err);
+//   });
 
 // Create a new community
 router.post('/communities', async (req, res) => {
