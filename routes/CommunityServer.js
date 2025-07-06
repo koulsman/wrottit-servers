@@ -5,7 +5,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const Community = require('../CommunitySchema'); // Your mongoose model
-
+const router = express.Router();
 
 require('dotenv').config();
 const uri = process.env.MONGODB_URI;
