@@ -29,11 +29,13 @@ app.use(bodyParser.json());
 // Import routes (from the old UserServer/PostServer/CommunityServer)
 const userRoutes = require('./routes/users');
 const postRoutes = require('./routes/PostServer');
+const communityRoutes = require('./routes/CommunityServer');
 // const communityRoutes = require('./routes/communities');
 
 // Mount routes
 app.use('/users', userRoutes);
 app.use('/PostServer', postRoutes);
+app.use('/CommunityServer', communityRoutes);
 // app.use('/communities', communityRoutes);
 
 app.get('/', (req, res) => {
