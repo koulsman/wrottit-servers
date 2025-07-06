@@ -27,15 +27,15 @@ app.use(cors({
 app.use(bodyParser.json());
 
 // Import routes (from the old UserServer/PostServer/CommunityServer)
-const userRoutes = require('./routes/UserServer');
-const postRoutes = require('./routes/PostServer');
-const communityRoutes = require('./routes/CommunityServer');
+const UserServer = require('./routes/UserServer');
+const PostServer = require('./routes/PostServer');
+const CommunityServer = require('./routes/CommunityServer');
 // const communityRoutes = require('./routes/communities');
 
 // Mount routes
-app.use('/UserServer', userRoutes);
-app.use('/PostServer', postRoutes);
-app.use('/CommunityServer', communityRoutes);
+app.use('/UserServer', UserServer);
+app.use('/PostServer', PostServer);
+app.use('/CommunityServer', CommunityServer);
 // app.use('/communities', communityRoutes);
 
 app.get('/', (req, res) => {
