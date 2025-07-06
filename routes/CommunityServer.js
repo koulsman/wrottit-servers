@@ -4,9 +4,9 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
-const Community = require('./CommunitySchema'); // Your mongoose model
+const Community = require('../CommunitySchema'); // Your mongoose model
 
-const app = express();
+
 require('dotenv').config();
 const uri = process.env.MONGODB_URI;
 const port = process.env.PORT || 3003;
@@ -18,19 +18,19 @@ const allowedOrigins = [
   'https://wrottit-yovc.onrender.com' // deployed frontend
 ];
 
-app.use(cors({
+router.use(cors({
   origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true,
 }));
-app.use(bodyParser.json());
+router.use(bodyParser.json());
 
 console.log('MongoDB URI being used:', uri);
 
 mongoose.connect(uri)
   .then(() => {
     console.log('MongoDB Connected!');
-    app.listen(port, () => {
+    router.listen(port, () => {
       console.log(`Community server running on port ${port}`);
     });
   })
@@ -39,7 +39,7 @@ mongoose.connect(uri)
   });
 
 // Create a new community
-app.post('/communities', async (req, res) => {
+router.post('/communities', async (req, res) => {
   const community = new Community({
     name: req.body.name,
     description: req.body.description,
@@ -61,7 +61,7 @@ app.post('/communities', async (req, res) => {
 });
 
 // Get all communities
-app.get('/communities', async (req, res) => {
+router.get('/communities', async (req, res) => {
   try {
     const communities = await Community.find();
     res.json(communities);
@@ -71,7 +71,7 @@ app.get('/communities', async (req, res) => {
 });
 
 // Get community by ID
-app.get('/communities/:id', async (req, res) => {
+router.get('/communities/:id', async (req, res) => {
   const id = req.params.id;
   try {
     const community = await Community.findById(id);
@@ -83,5 +83,16 @@ app.get('/communities/:id', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
-module.exports = app;
+router.get('/communities/searchedCommunities/:term', async (req,res) => {
+   const {term} = req.params;
+   try {
+     const communitiesMatched = await Community.find({
+      name: {$regex: term, $options: 'i'} 
+     })
+     res.json(communitiesMatched)
+   }
+   catch {
+       res.status(500).json({ message: err.message });
+   }
+})
+module.exports = router;

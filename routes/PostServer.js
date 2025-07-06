@@ -103,4 +103,23 @@ router.get('/posts/communityPosts/:communityId', async (req, res) => {
   }
 });
 
+router.get('/posts/searchedPosts/:term',async (req,res) => {
+  const {term} = req.params;
+  try {
+    const searchedTitles = await Post.find({
+      title: { $regex: term, $options: 'i' } // 'i' for case-insensitive
+    });
+    const searchedContent = await Post.find({
+      content: {$regex: term, $options: 'i'}
+    });
+   const merged = [...searchedTitles, ...searchedContent];
+const uniquePosts = Array.from(new Map(merged.map(item => [item._id.toString(), item])).values());
+res.json(uniquePosts);
+
+  }
+  catch (err) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+})
+
 module.exports = router;
