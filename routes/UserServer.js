@@ -16,7 +16,7 @@ async function getUser(req, res, next) {
 }
 
 // Create user with hashed password
-router.post('/', async (req, res) => {
+router.post('/users', async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
     const user = new User({
@@ -33,7 +33,7 @@ router.post('/', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/users/login', async (req, res) => {
   try {
     const user = await User.findOne({ email: req.body.email });
     if (!user) return res.status(401).json({ message: 'Invalid email or password' });
@@ -50,7 +50,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Push to user's arrays
-router.post('/:uid/commented', async (req, res) => {
+router.post('/users/:uid/commented', async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.uid,
@@ -64,7 +64,7 @@ router.post('/:uid/commented', async (req, res) => {
   }
 });
 
-router.post('/:uid/liked', async (req, res) => {
+router.post('/users/:uid/liked', async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.uid,
@@ -78,7 +78,7 @@ router.post('/:uid/liked', async (req, res) => {
   }
 });
 
-router.post('/:uid/posts', async (req, res) => {
+router.post('/users/:uid/posts', async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.uid,
@@ -92,7 +92,7 @@ router.post('/:uid/posts', async (req, res) => {
   }
 });
 
-router.post('/:uid/joined', async (req, res) => {
+router.post('/users/:uid/joined', async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.uid,
@@ -117,20 +117,20 @@ router.get('/id/:id', async (req, res) => {
   }
 });
 
-router.get('/:id', getUser, (req, res) => {
+router.get('/users/:id', getUser, (req, res) => {
   res.json(res.user);
 });
 
-router.get('/:id/joined', getUser, (req, res) => {
+router.get('/users/:id/joined', getUser, (req, res) => {
   res.json(res.user.joined);
 });
 
-router.get('/:id/saved', getUser, (req, res) => {
+router.get('/users/:id/saved', getUser, (req, res) => {
   res.json(res.user.saved);
 });
 
 // Unsupported GETs (name/email/password/userImage) -- should be changed ideally to query-based
-router.get('/email/:email', async (req, res) => {
+router.get('/users/:email', async (req, res) => {
   try {
     const user = await User.findOne({ email: req.params.email });
     if (!user) return res.status(404).json({ message: 'User not found' });
