@@ -78,19 +78,25 @@ router.post('/users/:uid/liked', async (req, res) => {
   }
 });
 
-router.post('/users/:uid/posts', async (req, res) => {
+router.post('/users/:uid/posts', async (req,res) => {
+  const { uid } = req.params;
+  const { id } = req.body;
+
   try {
     const user = await User.findByIdAndUpdate(
-      req.params.uid,
-      { $push: { posts: { id: req.body.id } } },
-      { new: true }
+      uid,
+      { $push: { posts: { id } } }, 
+      { new: true } 
     );
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    if (!user) {
+      return res.status(404).send({ message: 'user not found' });
+    }
+    res.status(200).send(user); // Send updated post
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Internal server error' });
   }
-});
+})
 
 router.post('/users/:uid/joined', async (req, res) => {
   try {
@@ -103,6 +109,38 @@ router.post('/users/:uid/joined', async (req, res) => {
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+router.post('/users/:uid/saved', async (req,res) => {
+  const { uid } = req.params;
+  const { id } = req.body;
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      uid,
+      { $addToSet: { saved: { id } } }, // Push the new comment into the array
+      { new: true } // Return the updated document
+    );
+    if (!user) {
+      return res.status(404).send({ message: 'user not found' });
+    }
+    res.status(200).send(user); // Send updated post
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Internal server error' });
+  }
+})
+router.delete('/users/:uid/saved/:postid', async (req, res) => {
+  const { uid, postid } = req.params;
+  try {
+    const user = await User.findByIdAndUpdate(
+      uid,
+      { $pull: { saved: { id: postid } } },
+      { new: true }
+    );
+    res.json(user.saved);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete saved post' });
   }
 });
 
@@ -127,6 +165,17 @@ router.get('/users/:id/joined', getUser, (req, res) => {
 
 router.get('/users/:id/saved', getUser, (req, res) => {
   res.json(res.user.saved);
+});
+router.get('/users/:uid/commented', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.uid); // Find user by ID
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' }); // Error if not found
+    }
+    res.json(user.commented); // Return only the "commented" array from that user
+  } catch (err) {
+    res.status(500).json({ message: err.message }); // Error handling
+  }
 });
 
 // Unsupported GETs (name/email/password/userImage) -- should be changed ideally to query-based
