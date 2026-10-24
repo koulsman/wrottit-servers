@@ -1,192 +1,286 @@
-const mongoose = require('mongoose');
+require("dotenv").config();
+
+const mongoose = require("mongoose");
 const express = require("express");
-const User = require("./UserModel"); // Import the User model
-const cors = require('cors'); // CORS middleware
-const bodyParser = require('body-parser'); // Body parser middleware
-const bcrypt = require("bcryptjs")
+const User = require("./UserModel");
+const cors = require("cors");
+const bcrypt = require("bcryptjs");
+
 const app = express();
-const port = 3001; // Update port to avoid conflict with frontend
 
-// MongoDB URI with specified database name (users_db)
-const uri = 'mongodb+srv://stevekoulas:asfalisa1@wrotit.mxylu.mongodb.net/users_db?retryWrites=true&w=majority&appName=wrotit&ssl=true';
+const PORT = process.env.PORT || 3001;
+const MONGO_URI = process.env.MONGO_URI;
 
-// Use CORS to allow requests from frontend
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://wrottit-i1cr.onrender.com",
+];
 
-// Use body parser to parse JSON request bodies
-app.use(bodyParser.json());
- 
+// CORS
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  }),
+);
 
-// Connect to MongoDB and start server
-mongoose.connect(uri)
-  .then(() => {
-    console.log('MongoDB Connected to users_db!');
-    app.listen(port, () => {
-      console.log(`Node server is running on port ${port}`);
+// Parse JSON
+app.use(express.json());
+
+// Health check for Render
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "users",
+  });
+});
+
+// Hide password hashes from API responses
+const safeUser = (user) => {
+  const result = user.toObject();
+  delete result.password;
+  return result;
+};
+
+// CREATE USER
+app.post("/users", async (req, res) => {
+  try {
+    const { name, email, password, userImage } = req.body;
+
+    if (
+      !name ||
+      !email ||
+      typeof password !== "string" ||
+      password.length < 8
+    ) {
+      return res.status(400).json({
+        message: "Name, email and password (8+ characters) are required",
+      });
+    }
+
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return res.status(409).json({
+        message: "Email already registered",
+      });
+    }
+
+    // IMPORTANT:
+    // This version hashes the password here.
+    // Remove any password hashing middleware from UserModel
+    // to avoid hashing it twice.
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    const user = new User({
+      name,
+      email,
+      password: hashedPassword,
+      userImage,
     });
-  })
-  .catch((error) => {
-    console.log('MongoDB connection error:', error);
-  });
 
-app.post('/users', async (req, res) => {
-  const user = new User({
-    name: req.body.name,
-    email: req.body.email,
-    password: req.body.password, // Fix: Access password from req.body,
-    userImage: req.body.userImage
-  });
-
-  try {
     const newUser = await user.save();
-    res.status(201).json(newUser); // Send created user as a response
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-});
 
-app.post('/users/:uid/commented', async (req,res) => {
-  const { uid } = req.params;
-  const { id } = req.body;
-
-  try {
-    const user = await User.findByIdAndUpdate(
-      uid,
-      { $push: { commented: { id } } }, // Push the new comment into the array
-      { new: true } // Return the updated document
-    );
-    if (!user) {
-      return res.status(404).send({ message: 'user not found' });
-    }
-    res.status(200).send(user); // Send updated post
+    res.status(201).json(safeUser(newUser));
   } catch (error) {
-    console.error(error);
-    res.status(500).send({ message: 'Internal server error' });
-  }
-})
-app.post('/users/:uid/liked', async (req,res) => {
-  const { uid } = req.params;
-  const { id } = req.body;
-
-  try {
-    const user = await User.findByIdAndUpdate(
-      uid,
-      { $push: { liked: { id } } }, // Push the new comment into the array
-      { new: true } // Return the updated document
-    );
-    if (!user) {
-      return res.status(404).send({ message: 'user not found' });
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "Email already registered",
+      });
     }
-    res.status(200).send(user); // Send updated post
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ message: 'Internal server error' });
-  }
-})
-app.post('/users/:uid/posts', async (req,res) => {
-  const { uid } = req.params;
-  const { id } = req.body;
 
+    console.error("Registration error:", error);
+    res.status(500).json({
+      message: "Unable to register user",
+    });
+  }
+});
+
+// LOGIN
+app.post("/users/login", async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      uid,
-      { $push: { posts: { id } } }, 
-      { new: true } 
-    );
-    if (!user) {
-      return res.status(404).send({ message: 'user not found' });
+    const { email, password } = req.body;
+
+    if (!email || typeof password !== "string") {
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
     }
-    res.status(200).send(user); // Send updated post
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ message: 'Internal server error' });
-  }
-})
-async function getUser(req, res, next) {
-  let user;
-  try {
-    user = await User.findById(req.params.id);
-    if (user == null) {
-      return res.status(404).json({ message: 'Cannot find user' });
-    }
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
-  }
 
-  res.user = user;
-  next();
-}
-
-app.get('/users/:id', getUser, (req, res) => {
-  res.json(res.user);
-});
-app.get('/users/:name', getUser, (req, res) => {
-  res.json(res.user);
-});
-app.get('/users/:email', getUser, (req, res) => {
-  res.json(res.user);
-});
-app.get('/users/:password', getUser, (req, res) => {
-  res.json(res.user);
-});
-app.get('/users/:userImage', getUser, (req, res) => {
-  res.json(res.user);
-});
-app.post('/users/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    // Find user by email
-    const user = await User.findOne({ email: email });
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
     }
 
-    // Compare provided password with stored hashed password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
     }
 
-    // If password matches, return user data (excluding password for security)
-    res.status(200).json(user);
-
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(200).json(safeUser(user));
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({
+      message: "Login failed",
+    });
   }
 });
 
-// app.post('/users/login', async (req, res) => {
-//   const { email, password } = req.body;
-
-//   try {
-//     // Αναζητούμε τον χρήστη με βάση το email
-//     const user = await User.findOne({ email: email });
-
-//     // Έλεγχος αν ο χρήστης υπάρχει και το password ταιριάζει
-//     if (user && user.password === password) {
-//       res.status(200).json(user); // Επιστρέφουμε τα δεδομένα του χρήστη
-//     } else {
-//       res.status(401).json({ message: 'Invalid email or password' }); // Σφάλμα αν το email ή το password είναι λάθος
-//     }
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// });
-app.post('/users/liked',async (req, res) => {
-  const user = new User({
-    name: req.body.name,
-    email: req.body.email,
-    password: req.body.password // Fix: Access password from req.body
-  });
-
+// GET USER BY ID
+app.get("/users/:id", async (req, res) => {
   try {
-    const newUser = await user.save();
-    res.status(201).json(newUser); // Send created user as a response
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        message: "Invalid user ID",
+      });
+    }
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json(safeUser(user));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Unable to retrieve user",
+    });
   }
-})
+});
+
+// ADD COMMENTED POST TO USER
+app.post("/users/:uid/commented", async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { id } = req.body;
+
+    if (!mongoose.isValidObjectId(uid) || !id) {
+      return res.status(400).json({
+        message: "Valid user ID and comment ID required",
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      uid,
+      { $push: { commented: { id } } },
+      { new: true, runValidators: true },
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json(safeUser(user));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Unable to update commented posts",
+    });
+  }
+});
+
+// ADD LIKED POST TO USER
+app.post("/users/:uid/liked", async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { id } = req.body;
+
+    if (!mongoose.isValidObjectId(uid) || !id) {
+      return res.status(400).json({
+        message: "Valid user ID and post ID required",
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      uid,
+      { $addToSet: { liked: { id } } },
+      { new: true, runValidators: true },
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json(safeUser(user));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Unable to update liked posts",
+    });
+  }
+});
+
+// ADD CREATED POST TO USER
+app.post("/users/:uid/posts", async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { id } = req.body;
+
+    if (!mongoose.isValidObjectId(uid) || !id) {
+      return res.status(400).json({
+        message: "Valid user ID and post ID required",
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      uid,
+      { $push: { posts: { id } } },
+      { new: true, runValidators: true },
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json(safeUser(user));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Unable to update user posts",
+    });
+  }
+});
+
+// START SERVER
+async function startServer() {
+  try {
+    if (!MONGO_URI) {
+      throw new Error("MONGO_URI is not configured");
+    }
+
+    await mongoose.connect(MONGO_URI);
+    console.log("MongoDB connected - Users Server");
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Users Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Server startup failed:", error);
+    process.exit(1);
+  }
+}
+
+if (require.main === module) {
+  startServer();
+}
+
 module.exports = app;

@@ -1,147 +1,281 @@
-const mongoose = require('mongoose');
-const express = require("express");
-const Post = require("./backend/PostModel"); // Assuming Post model is defined properly
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const multer = require("multer");
-const upload = multer({ dest: "uploads/" });
-const app = express();
-const port = 3002;
+require("dotenv").config();
 
+const mongoose = require("mongoose");
+const express = require("express");
+const Post = require("./PostModel");
+const cors = require("cors");
+const multer = require("multer");
+
+const app = express();
+
+const PORT = process.env.PORT || 3002;
+const MONGO_URI = process.env.MONGO_URI;
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://wrottit-i1cr.onrender.com",
+];
+
+// CORS
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  }),
+);
+
+// Request body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const uri = 'mongodb+srv://stevekoulas:asfalisa1@wrotit.mxylu.mongodb.net/users_db?retryWrites=true&w=majority&appName=wrotit&ssl=true';
-const cloudinary_url = 'cloudinary://238832425628676:q2qEiXD1AnxixxgdHhvvqoBRRcA@ddakpw9jf';
-app.use(cors({
-  // origin: 'https://wrottit-yovc.onrender.com',
-   origin: 'http://localhost:3000',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
-}));
+// Multer for multipart form data without files
+const upload = multer();
 
-app.use(bodyParser.json());
-
-// Connect to MongoDB
-mongoose.connect(uri)
-  .then(() => {
-    console.log('MongoDB Connected!');
-    app.listen(port, () => {
-      console.log(`Server is running on port ${port}`);
-    });
-  })
-  .catch((error) => {
-    console.log('MongoDB connection error:', error);
+// Render health check
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "posts",
   });
-
-// Handling post creation
-
-// app.post("/posts", upload.none(), async (req, res) => {
-  
-app.post("/posts", upload.none(), async (req, res) => {
-  
-
-  const post = new Post({
-    title: req.body.title,
-    communityName: req.body.communityName,
-    communityId: req.body.communityId,
-    uid: req.body.uid,
-    uname: req.body.uname,
-    content: req.body.content,
-    upvotes: req.body.upvotes || 0,
-    date: 'date',
-    comments: [],
-    images: req.body.images,
-  });
-
-  try {
-    const newPost = await post.save();
-    res.status(201).json(newPost);
-  } catch (err) {
-    console.error(err);
-    res.status(400).json({ message: err.message });
-  }
 });
 
-
-app.get('/posts', async (req, res) => {
+// GET ALL POSTS
+app.get("/posts", async (req, res) => {
   try {
     const posts = await Post.find();
-    res.json(posts);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-app.get('/posts/:id', async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.id);
-    if (!post) {
-      return res.status(404).json({ message: "Post not found" });
-    }
-    res.json(post);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-app.post('/posts/:id/comments', async (req, res) => {
-  const { id } = req.params;
-  const { uid, uname, comment } = req.body;
 
+    res.status(200).json(posts);
+  } catch (error) {
+    console.error("Get posts error:", error);
+    res.status(500).json({
+      message: "Unable to retrieve posts",
+    });
+  }
+});
+
+// GET POSTS BY USER
+// Must be before /posts/:id
+app.get("/posts/postsby/:uid", async (req, res) => {
   try {
-    const post = await Post.findByIdAndUpdate(
-      id,
-      { $push: { comments: { uid, uname, comment } } }, // Push the new comment into the array
-      { new: true } // Return the updated document
-    );
-    if (!post) {
-      return res.status(404).send({ message: 'Post not found' });
-    }
-    res.status(200).send(post); // Send updated post
+    const { uid } = req.params;
+
+    const posts = await Post.find({ uid });
+
+    res.status(200).json(posts);
   } catch (error) {
     console.error(error);
-    res.status(500).send({ message: 'Internal server error' });
+    res.status(500).json({
+      message: "Unable to retrieve user posts",
+    });
   }
-  console.log(uid,uname,comment)
 });
-// Upvote a post
-app.post('/:id/upvotes', async (req, res) => {
-  const { id } = req.params;
+
+// GET POSTS BY COMMUNITY
+app.get("/posts/communityPosts/:communityId", async (req, res) => {
   try {
+    const { communityId } = req.params;
+
+    const communityPosts = await Post.find({
+      communityId: String(communityId),
+    });
+
+    res.status(200).json(communityPosts);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Unable to retrieve community posts",
+    });
+  }
+});
+
+// GET POST BY ID
+app.get("/posts/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        message: "Invalid post ID",
+      });
+    }
+
+    const post = await Post.findById(id);
+
+    if (!post) {
+      return res.status(404).json({
+        message: "Post not found",
+      });
+    }
+
+    res.status(200).json(post);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Unable to retrieve post",
+    });
+  }
+});
+
+// CREATE POST
+// Supports JSON and multipart form data without files
+app.post("/posts", upload.none(), async (req, res) => {
+  try {
+    const {
+      title,
+      communityName,
+      communityId,
+      uid,
+      uname,
+      content,
+      upvotes,
+      images,
+    } = req.body;
+
+    if (!title || !uid) {
+      return res.status(400).json({
+        message: "Title and user ID are required",
+      });
+    }
+
+    // Handle images submitted as JSON, a string,
+    // or an array in multipart FormData
+    let parsedImages = images || [];
+
+    if (typeof parsedImages === "string") {
+      try {
+        const parsed = JSON.parse(parsedImages);
+        parsedImages = Array.isArray(parsed) ? parsed : [parsedImages];
+      } catch {
+        parsedImages = [parsedImages];
+      }
+    }
+
+    const post = new Post({
+      title,
+      communityName,
+      communityId,
+      uid,
+      uname,
+      content,
+      upvotes: Number(upvotes) || 0,
+      date: new Date(),
+      comments: [],
+      images: parsedImages,
+    });
+
+    const newPost = await post.save();
+
+    res.status(201).json(newPost);
+  } catch (error) {
+    console.error("Create post error:", error);
+    res.status(400).json({
+      message: "Unable to create post",
+    });
+  }
+});
+
+// ADD COMMENT TO POST
+app.post("/posts/:id/comments", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { uid, uname, comment } = req.body;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        message: "Invalid post ID",
+      });
+    }
+
+    if (!uid || typeof comment !== "string" || !comment.trim()) {
+      return res.status(400).json({
+        message: "User ID and comment are required",
+      });
+    }
+
+    const post = await Post.findByIdAndUpdate(
+      id,
+      {
+        $push: {
+          comments: {
+            uid,
+            uname,
+            comment,
+          },
+        },
+      },
+      { new: true, runValidators: true },
+    );
+
+    if (!post) {
+      return res.status(404).json({
+        message: "Post not found",
+      });
+    }
+
+    res.status(200).json(post);
+  } catch (error) {
+    console.error("Comment error:", error);
+    res.status(500).json({
+      message: "Unable to add comment",
+    });
+  }
+});
+
+// UPVOTE POST
+// Preserves your existing route
+app.post("/:id/upvotes", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        message: "Invalid post ID",
+      });
+    }
+
     const post = await Post.findByIdAndUpdate(
       id,
       { $inc: { upvotes: 1 } },
-      { new: true }
+      { new: true, runValidators: true },
     );
+
     if (!post) {
-      return res.status(404).send({ message: 'Post not found' });
+      return res.status(404).json({
+        message: "Post not found",
+      });
     }
-    res.status(200).send(post);
+
+    res.status(200).json(post);
   } catch (error) {
-    console.error(error);
-    res.status(500).send({ message: 'Internal server error' });
+    console.error("Upvote error:", error);
+    res.status(500).json({
+      message: "Unable to upvote post",
+    });
   }
 });
 
-// Get posts by UID
-app.get('/posts/postsby/:uid', async (req, res) => {
-  const { uid } = req.params;
+// START SERVER
+async function startServer() {
   try {
-    const posts = await Post.find({ uid });
-    res.json(posts);
-  } catch (err) {
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
+    if (!MONGO_URI) {
+      throw new Error("MONGO_URI is not configured");
+    }
 
-app.get('/posts/communityPosts/:communityId', async (req, res) => {
-  const { communityId } = req.params;
-  try {
-    const communityPosts = await Post.find({ communityId: String(communityId) });
-    res.json(communityPosts);
-  } catch (err) {
-    res.status(500).json({ message: 'Internal server error' });
+    await mongoose.connect(MONGO_URI);
+    console.log("MongoDB connected - Posts Server");
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Posts Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Server startup failed:", error);
+    process.exit(1);
   }
-});
+}
+
+if (require.main === module) {
+  startServer();
+}
 
 module.exports = app;
